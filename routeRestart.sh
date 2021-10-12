@@ -2,15 +2,22 @@
 function network() {
     local timeout=2
     local target=www.baidu.com
-    # 根据网页的返回的状态码判断是否联网，追加timeout
-    code=$(curl -I -s --connect-timeout ${timeout} ${target} -w %{http_code} | head -n1 | awk '{print $2}')
-    # echo $code
-    if [ "$code" == "200" ]; then
-        return 1
-    else
-        return 0
-    fi
-    return 0
+    local try_time=5
+    local i=1
+    # 成功次数
+    local suc=0
+    # 尝试5次访问
+    while [ $i -le $try_time ]; do
+        # 根据网页的返回的状态码判断是否联网，追加timeout
+        code=$(curl -I -s --connect-timeout ${timeout} ${target} -w %{http_code} | head -n1 | awk '{print $2}')
+        let i++
+        if [ "$code" == "200" ]; then
+            let suc++
+        else
+            echo -e "Code：$code\n"$(date) >>./code_log
+        fi
+    done
+    return $suc
 }
 function routeR() {
     # 进入爱快控制台重启
@@ -20,10 +27,10 @@ function routeR() {
 EOF
 }
 network
-if [ $? -eq 0 ]; then
-    echo "网络不畅通，请检查网络设置！"
+if [ $? -le 2 ]; then
+    echo -e "网络不畅通,当前时间为：\n"$(date) >>./fail_log
     routeR
     exit -1
 else
-    echo "网络畅通，你可以上网冲浪！"
+    echo -e "网络畅通,当前时间为：\n"$(date) >>./suc_log
 fi
